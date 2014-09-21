@@ -1,3 +1,14 @@
+# Notes
+
+Is this true any more? http://stackoverflow.com/questions/19234831/where-are-docker-images-stored-on-the-host-machine/
+
+## Resources
+
+http://blog.thoward37.me/articles/where-are-docker-images-stored/
+
+https://registry.hub.docker.com/_/ubuntu/
+
+
 # To do
 
 1. Use a config product to set up new docker nodes. Same setup on a fresh Ubuntu droplet.
