@@ -1,12 +1,31 @@
 # Notes
 
+Read http://blog.thoward37.me/articles/where-are-docker-images-stored/
+
 Is this true any more? http://stackoverflow.com/questions/19234831/where-are-docker-images-stored-on-the-host-machine/
 
-## Resources
+## Gotchas
 
+Why is stop taking all ten seconds of the timeout??
+- Perhaps because bash is immune to SIGTERM?, https://github.com/docker/docker/issues/3766
+- Well why does a python daemon act the same? Just try and Ctrl-C this foreground process:
+  - `docker run ubuntu /bin/sh -c "python3 -m http.server"`
+- The 'main' issue for this is https://github.com/docker/docker/issues/2436
+- It's because the container command is run as PID 1, which is unkillable by SIGTERM - unless you install a trap yourself (e.g. in a bash script). https://github.com/docker/docker/pull/3240
+- This seems to be a dead end and not being addressed for now.
+
+The moment you realise all these containers are being remembered, that's when you need to know `docker ps -a`.
+PORTS will be blank in `docker ps -a` even if it has port mappings.
+
+
+## Resources
 http://blog.thoward37.me/articles/where-are-docker-images-stored/
 
 https://registry.hub.docker.com/_/ubuntu/
+
+## Criticism
+https://news.ycombinator.com/item?id=8167928
+Cute names - why didn't they use a better word list?
 
 
 # To do
