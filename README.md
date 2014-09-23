@@ -1,6 +1,33 @@
+# Things to try
+
+- Try a docker image that registers with Salt for remote control.
+  - Salt is config/state management - not really a command broadcaster.
+  - Docker means the end of config management: You bake Salt steps into the Dockerfile and cycle containers. What are exceptions?
+- Use a private repo for push/pull.
+- Test CPU shares.
+- Other resource limits, network bandwidth?
+
 # Notes
 
 The lxc-docker install process starts the daemon by default using upstart (/etc/init).
+
+Even though you're root, your *capabilities* are limited. e.g. `poweroff` gets `shutdown: unable to shutdown system`.
+
+## Docker as Salt minion
+
+The image will assume the hostname is good. This is the right approach, `docker run` lets you invent your hostname.
+We will invent a convention `docker-0123` so the salt master can distinguish the containers.
+
+Cleverness:
+1. Don't start the service when you install the salt-minion.
+1. Insert our config file with master location.
+1. Run as a foreground process in ENTRYPOINT, not as a service.
+
+## The good bits
+
+Port mapping.
+Dockerfile RUN layers.
+An image can be used as a (potentially very complex) executable, auto-downloaded.
 
 ## Terms and naming
 
@@ -29,17 +56,24 @@ From http://blog.thoward37.me/articles/where-are-docker-images-stored/
 - This is enough to attach and pipe other processes.
 - You can't send signals. e.g. `docker run -i ubuntu bash` is impossible to exit from! This may be a bug (see Issues).
 
-`-t` registers a `pty` with the PID, which allows more complex interaction than stdin/stdout.
+`-t` creates a `pty` in the container (confirm - it's definitely stateful as a startup decision), which allows more complex interaction than stdin/stdout.
 - You can send signals.
 - If you don't run with a `-t` tty, your process will not accept signals on attach. Ref. https://github.com/docker/docker/issues/2855#issuecomment-56553415
+  - This can't be exactly true: The default is forward signals. I can kill a `top` that was not run with `-t` - surely with no TTY I can't Ctrl-C the process?
 
-These flags are useful even in `-d` daemon mode! If you want to attach to your `bash` container and see a prompt, you will need `docker run -i -t -d ubuntu bash`.
+These flags are important and stateful even in `-d` daemon mode! If you want to attach to your `bash` container and see a prompt, you will need `docker run -i -t -d ubuntu bash`.
+
+It's not clear. Even if you `run` without `-t`, `attach` can be run later and because "it assumes" a terminal, you can send signals to the process.
+
+Weird combinations
+- Using `-t` without `-i` seems weird
+- `--sig-proxy` seems pointless if you run in `-d` daemon mode, since the thing responsible for proxying goes away.
 
 ## Signals
 
-With `docker run --sig-proxy=true`, docker will catch selected signals and forward them to the PID. This is useful if a `tty` is not attached. SIGKILL is not forwarded, i.e. it will kill docker.
+With `docker run/attach --sig-proxy=true`, docker will catch selected signals and forward them to the PID. This is useful if a `tty` is not attached. SIGKILL is not forwarded, i.e. it will kill docker.
 
-With `docker kill --signal="INT"` you can send arbitrary signals to the PID, e.g. to generate a Java thread dump.
+With `docker kill --signal="QUIT"` you can send arbitrary signals to the PID, e.g. to generate a `kill -3` Java thread dump.
 
 ## Dockerfiles
 
@@ -54,10 +88,20 @@ Every command is executed in its own context - so stateful commands like `cd foo
 
 `docker build` will send everything in the directory to the daemon - so start with an empty dir and add just the things you need.
 
-# Things to try
+If your RUN involves a 'latest' state, like `dist-upgrade -y`, you'll need to invalidate the docker build cache to force it to be evaluated again.
 
-- What does sig-proxy exactly?
-- Salt vs Docker. Docker means config management goes away. We should bake all of Salt steps into the Dockerfile. Becoming a Salt minion would only be useful for subsequent changes. When would you Salt out a change as opposed to updating Dockerfile and replacing containers?
+CMD: the default command that can be overwritten.
+ENTRYPOINT: the non-negotiable command that will accept `docker run` arguments.
+
+ONBUILD: a trigger to execute if someone uses this image as a FROM.
+
+Gotcha: Your Dockerfile is just setting up a file state. You can't start a service in it.
+
+Gotcha: you need DEBIAN_FRONTEND=noninteractive to avoid apt-get warnings; but don't set as an ENV, or the setting will persist into the running container.
+
+Tip: If you're running a service, you're probably Doing It Wrong. Run foreground as main process.
+
+Dockerfile reference examples are weak!
 
 # Gotchas
 
