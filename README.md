@@ -1,10 +1,99 @@
 # Notes
 
-Read http://blog.thoward37.me/articles/where-are-docker-images-stored/
+The lxc-docker install process starts the daemon by default using upstart (/etc/init).
 
-Is this true any more? http://stackoverflow.com/questions/19234831/where-are-docker-images-stored-on-the-host-machine/
+## Terms and naming
 
-## Gotchas
+Image naming: a single word is a *base* or *root* image: they are official and maintained by Docker.
+
+From http://blog.thoward37.me/articles/where-are-docker-images-stored/
+- An Image is an opaque asset. A Dockerfile is the source code that creates an Image (by docker build). The Docker Index shows Images, not Dockerfiles. Docker push publishes your image, not your Dockerfile.
+- An Index is accounts, permissions, search, tagging. A registry stores images and uses an Index for auth.
+  - docker search works against the index. The index can point off to multiple registries.
+  - docker push/pull works against the index, then gets forwarded to the appropriate registry.
+- A registry holds a collection of named repositories.
+- A repository is a collection of Images tracked by GUIDs.
+  - The same image can be stored under different tags.
+  - A repository name is sometimes the whole user/repo string (air/somerepo).
+  - The public index will require you to put your username in front. Otherwise you're in the 'root' of the repository.
+
+## Commands
+
+`docker pull` to download an image.
+`docker search` to find an image from the command line.
+
+## Streams
+
+`-i` attaches the PID's stdout, stderr to the current terminal.
+- Because stdin is attached, you can interact with e.g. `bash`! You just won't see the prompt returned to you.
+- This is enough to attach and pipe other processes.
+- You can't send signals. e.g. `docker run -i ubuntu bash` is impossible to exit from! This may be a bug (see Issues).
+
+`-t` registers a `pty` with the PID, which allows more complex interaction than stdin/stdout.
+- You can send signals.
+- If you don't run with a `-t` tty, your process will not accept signals on attach. Ref. https://github.com/docker/docker/issues/2855#issuecomment-56553415
+
+These flags are useful even in `-d` daemon mode! If you want to attach to your `bash` container and see a prompt, you will need `docker run -i -t -d ubuntu bash`.
+
+## Signals
+
+With `docker run --sig-proxy=true`, docker will catch selected signals and forward them to the PID. This is useful if a `tty` is not attached. SIGKILL is not forwarded, i.e. it will kill docker.
+
+With `docker kill --signal="INT"` you can send arbitrary signals to the PID, e.g. to generate a Java thread dump.
+
+## Dockerfiles
+
+Create new images, two options:
+1. Take any container with some modified state (e.g. an extra installed package) and `docker commit` it with an image name (`air/foo`) and version tag. You can give a commit message and an author name.
+  - This is not source controllable.
+2. Script it with `docker build` against a Dockerfile. Supply a version tag.
+
+Every command in the Dockerfile creates a new layer.
+
+Every command is executed in its own context - so stateful commands like `cd foo` will do nothing.
+
+`docker build` will send everything in the directory to the daemon - so start with an empty dir and add just the things you need.
+
+# Things to try
+
+- What does sig-proxy exactly?
+- Salt vs Docker. Docker means config management goes away. We should bake all of Salt steps into the Dockerfile. Becoming a Salt minion would only be useful for subsequent changes. When would you Salt out a change as opposed to updating Dockerfile and replacing containers?
+
+# Gotchas
+
+TODO raise these issues!
+
+The moment you realise all these containers are being remembered, that's when you need to know `docker ps -a`.
+PORTS will be blank in `docker ps -a` even if it has port mappings.
+
+## Not docker: Python buffers stdin
+
+The stderr output of `python -m http.server` will not be shown in docker logs (or attached!) until you kill the process, at which point it all appears. You need `python -u` to unbuffer stdin.
+
+## no-stdin=false is a double negative
+
+Raised https://github.com/docker/docker/issues/8183
+
+## Attach is a mess
+
+It doesn't work as documented: Ctrl-C kills the process. i.e. It proxies the signal to the PID even though we didn't specify `--sig-proxy=true`.
+
+- https://github.com/docker/docker/issues/2855
+- http://docs.docker.com/reference/commandline/cli/#attach
+
+Also, if you run python, Ctrl-C does nothing at all.
+
+IF you're in an interactive shell (i.e. specifically a shell process?) then Ctrl-p, Ctrl-q will safely get you out of the container.
+
+Lack of technical leadership on e.g. https://github.com/docker/docker/issues/2855 - going on forever.
+
+Solomon:
+> I'm the one to blame for the "carpet-bomb consistency" across run, start and attach. My reasoning was that the default behavior should be consistent. But in the case of attach I see the problem.
+> Ironically now I worry about causing even more damage by "flip-flopping" and changing back the attach behavior. What do you think?
+
+## Stop is a mess
+
+Beware of docker SIGKILLing your app.
 
 Why is stop taking all ten seconds of the timeout??
 - Perhaps because bash is immune to SIGTERM?, https://github.com/docker/docker/issues/3766
@@ -14,32 +103,23 @@ Why is stop taking all ten seconds of the timeout??
 - It's because the container command is run as PID 1, which is unkillable by SIGTERM - unless you install a trap yourself (e.g. in a bash script). https://github.com/docker/docker/pull/3240
 - This seems to be a dead end and not being addressed for now.
 
-The moment you realise all these containers are being remembered, that's when you need to know `docker ps -a`.
-PORTS will be blank in `docker ps -a` even if it has port mappings.
+Consequences:
+- Processes that have their output buffered (see issue #1) will have that output killed before it gets to disk! Your `docker logs` will show nothing because the process didn't get a SIGTERM.
 
-
-## Resources
+# Resources
 http://blog.thoward37.me/articles/where-are-docker-images-stored/
 
 https://registry.hub.docker.com/_/ubuntu/
 
-## Criticism
+# Criticism
 https://news.ycombinator.com/item?id=8167928
 Cute names - why didn't they use a better word list?
 
 
 # To do
 
-1. Use a config product to set up new docker nodes. Same setup on a fresh Ubuntu droplet.
-1. Read docker user guide and make notes.
-
-  - Work through all core stuff on Ubuntu
   - Use volumes, signals, nsenter rather than sshd. http://blog.docker.com/why-you-dont-need-to-run-sshd-in-docker/
   - Check concepts, best practices at http://radial.viewdocs.io/docs/topology
-
-# Docker notes
-
-Install starts the daemon by default using upstart (/etc/init).
 
 # Things to look at
 
