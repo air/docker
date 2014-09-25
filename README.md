@@ -1,17 +1,28 @@
 # Things to try
 
-- Try a docker image that registers with Salt for remote control.
-  - Salt is config/state management - not really a command broadcaster.
-  - Docker means the end of config management: You bake Salt steps into the Dockerfile and cycle containers. What are exceptions?
+- Read http://www.linusakesson.net/programming/tty/
+- Follow guides
 - Use a private repo for push/pull.
 - Test CPU shares.
+- Try https://github.com/crosbymichael/minecraft-docker
+- Look for official Tomcat image
 - Other resource limits, network bandwidth?
+- How does FROM ubuntu run on e.g. Amazon AMI?
+- Other misc stuff from below
 
 # Notes
 
 The lxc-docker install process starts the daemon by default using upstart (/etc/init).
 
 Even though you're root, your *capabilities* are limited. e.g. `poweroff` gets `shutdown: unable to shutdown system`.
+
+## tty
+
+If a tty is active on attach, we use `utils.CopyEscapable(cStdin, stdin)` instead of `io.Copy(cStdin, stdin)` in `docker/daemon/attach.go`.
+
+The implementation of ^P^Q can be found at https://github.com/docker/docker/blob/master/utils/utils.go#L216
+
+So: if you attach with tty, ^P^Q will be interpreted. Is tty ever false here?
 
 ## Docker as Salt minion
 
@@ -92,6 +103,10 @@ If your RUN involves a 'latest' state, like `dist-upgrade -y`, you'll need to in
 
 CMD: the default command that can be overwritten.
 ENTRYPOINT: the non-negotiable command that will accept `docker run` arguments.
+You can have both usefully, e.g.
+
+    ENTRYPOINT ["java"]
+    CMD ["-Xmx1536M", "-Xms768M", "-jar", "/minecraft.jar", "nogui"]
 
 ONBUILD: a trigger to execute if someone uses this image as a FROM.
 
