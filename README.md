@@ -1,6 +1,5 @@
 # Things to try
 
-- Read http://www.linusakesson.net/programming/tty/
 - Follow guides
 - Use a private repo for push/pull.
 - Test CPU shares.
@@ -15,6 +14,8 @@
 The lxc-docker install process starts the daemon by default using upstart (/etc/init).
 
 Even though you're root, your *capabilities* are limited. e.g. `poweroff` gets `shutdown: unable to shutdown system`.
+
+Use docker run --name=foo early. Pets vs cattle and all that but for testing call it 'python'.
 
 ## tty
 
@@ -36,9 +37,10 @@ Cleverness:
 
 ## The good bits
 
-Port mapping.
+Port mapping. Can bind ports to specific interfaces, e.g. a port is only available on localhost, not the external interface! Very useful.
 Dockerfile RUN layers.
 An image can be used as a (potentially very complex) executable, auto-downloaded.
+Linking containers without exposing ports.
 
 ## Terms and naming
 
@@ -57,8 +59,32 @@ From http://blog.thoward37.me/articles/where-are-docker-images-stored/
 
 ## Commands
 
-`docker pull` to download an image.
+`docker pull` to download an image into local cache that you know you'll need.
 `docker search` to find an image from the command line.
+`docker commit` to save off the disk of a container as a new image.
+
+## Linking
+
+For this to work, your server container must have an EXPOSE declaration.
+
+Start a server and tell Docker to EXPOSE a port. This doesn't actually open a port!
+
+    $ docker run -d --name=python --expose=8000 ubuntu python3 -u -m http.server
+
+Now we can logically link another container. We get
+
+    $ docker run --link python:http ubuntu nc -zv http 8000
+    Connection to http 8000 port [tcp/*] succeeded!
+
+Technically we should read the `8000` value from an env var but the variable gets eaten by the shell.
+
+Docker gives you a bunch of env vars, and an /etc/hosts entry to find your server, e.g.:
+
+    DB_PORT=tcp://172.17.0.5:5432
+    DB_PORT_5432_TCP=tcp://172.17.0.5:5432
+    DB_PORT_5432_TCP_PROTO=tcp
+    DB_PORT_5432_TCP_PORT=5432
+    DB_PORT_5432_TCP_ADDR=172.17.0.5
 
 ## Streams
 
@@ -135,7 +161,9 @@ Raised https://github.com/docker/docker/issues/8183
 
 ## Attach is a mess
 
-It doesn't work as documented: Ctrl-C kills the process. i.e. It proxies the signal to the PID even though we didn't specify `--sig-proxy=true`.
+"Attach isn't intended to run new stuff in the container. It's meant to attach to the running process."
+
+It doesn't work as documented: Ctrl-C kills the process. i.e. It proxies the signal to the PID even though we didn't specify `--sig-proxy=true`. Update: docs were updated to match the behaviour.
 
 - https://github.com/docker/docker/issues/2855
 - http://docs.docker.com/reference/commandline/cli/#attach
