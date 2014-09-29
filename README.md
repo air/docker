@@ -178,6 +178,27 @@ Solomon:
 > I'm the one to blame for the "carpet-bomb consistency" across run, start and attach. My reasoning was that the default behavior should be consistent. But in the case of attach I see the problem.
 > Ironically now I worry about causing even more damage by "flip-flopping" and changing back the attach behavior. What do you think?
 
+### Philosophy
+
+Some users are misled into thinking that a container is a "mini quarantined OS". Therefore attaching to the container should allow general interactivity without necessarily messing with the primary process.
+This idea is wrong. It derives from the experience of logging into a VM. Brian Goff:
+> When you SSH into a VM, you aren't attaching to the VM, you are connecting to a process inside the VM (which itself was started by /sbin/init) which fires off (generally speaking) a new shell process.
+
+Compare this to docker. Brian Goff:
+> If you ps faux on your host machine, you won't see a "container process", you'll see all the stuff running in each container as direct descendants of the docker daemon process (except in cases where the container's process was not started with exec, in which case there will be a /bin/sh -c in between).
+
+> While attach is not well named, particularly because of the LXC command lxc-attach (which is more akin docker exec <container> /bin/sh, but LXC specific), it does have a specific purpose of literally attaching you to the process Docker started.
+Depending on what the process is the behavior may be different, for instance attaching to /bin/bash will give you a shell, but attaching to redis-server will be like you'd just started redis directly without daemonizing.
+
+> docker logs, for example, is pretty much the same thing as docker attach, but without any input.
+
+An addendum notes that docker logs actually uses a process to write logs to a file before streaming to the client - it's not a direct stream)
+
+Example:
+
+    root       670  0.0  2.1 626600 10844 ?        Ssl  Sep28   0:02 /usr/bin/docker -d
+    root      3088  9.2  2.9  49316 15008 ?        Ss   11:16   0:00  \_ python3 -u -m http.server
+
 ## Stop is a mess
 
 Beware of docker SIGKILLing your app.
