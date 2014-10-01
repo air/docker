@@ -3,6 +3,7 @@
 - Follow guides
 - Use a private repo for push/pull.
 - Test CPU shares.
+- Read http://developerblog.redhat.com/2014/09/30/overview-storage-scalability-docker/
 - Try https://github.com/crosbymichael/minecraft-docker
 - Look for official Tomcat image
 - Other resource limits, network bandwidth?
