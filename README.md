@@ -200,6 +200,10 @@ Example:
     root       670  0.0  2.1 626600 10844 ?        Ssl  Sep28   0:02 /usr/bin/docker -d
     root      3088  9.2  2.9  49316 15008 ?        Ss   11:16   0:00  \_ python3 -u -m http.server
 
+More info on single-process being the intent:
+
+> And yes, Docker monitors pid 1 in the container. You can certainly start other processes as you like, or even fire off an entire init process like runit, supervisor, or even upstart/systemd. But Docker only cares about the first process.
+
 ## Stop is a mess
 
 Beware of docker SIGKILLing your app.
